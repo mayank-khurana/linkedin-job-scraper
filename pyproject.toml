@@ -1,0 +1,13 @@
+[project]
+name = "linkedin-scrape"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "ollama>=0.6.0",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.3",
+    "requests>=2.32.5",
+    "selenium>=4.38.0",
+    "tqdm>=4.67.1",
+]
