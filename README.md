@@ -91,7 +91,7 @@ Default settings can be modified in `src/config/settings.py`:
 The main entry point requires three mandatory arguments:
 
 ```bash
-uv run python src/main.py \
+uv run python -m src.main \
   --email "your.email@example.com" \
   --password "your_password" \
   --search_text "Data Scientist"
@@ -109,34 +109,34 @@ uv run python src/main.py \
 
 ```bash
 # Basic usage with all required arguments (runs every hour by default)
-uv run python src/main.py \
+uv run python -m src.main \
   --email "user@example.com" \
   --password "secure_password" \
   --search_text "Machine Learning Engineer"
 
 # With custom scroll attempts
-uv run python src/main.py \
+uv run python -m src.main \
   --email "user@example.com" \
   --password "secure_password" \
   --search_text "Python Developer" \
   --max_scroll_attempts 30
 
 # Run every 30 minutes (0.5 hours)
-uv run python src/main.py \
+uv run python -m src.main \
   --email "user@example.com" \
   --password "secure_password" \
   --search_text "Data Scientist" \
   --interval 0.5
 
 # Run every 2 hours
-uv run python src/main.py \
+uv run python -m src.main \
   --email "user@example.com" \
   --password "secure_password" \
   --search_text "Software Engineer" \
   --interval 2.0
 
 # Run every 15 minutes with custom scroll attempts
-uv run python src/main.py \
+uv run python -m src.main \
   --email "user@example.com" \
   --password "secure_password" \
   --search_text "DevOps Engineer" \
