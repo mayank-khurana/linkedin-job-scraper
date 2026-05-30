@@ -5,20 +5,26 @@ import shutil
 import subprocess
 import sys
 
-from ollama import chat
+from ollama import Client
 from pydantic import BaseModel
-from typing import Type
+from typing import Optional, Type
 
 logger = logging.getLogger(__name__)
 
 
 class OllamaModelSetup:
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, host: Optional[str] = None):
         logger.info("Initializing Ollama model setup for '%s'", model_name)
         self.model_name = model_name
-        self._install_ollama()
-        self._pull_model(self.model_name)
-        self.device_info = self.check_device_usage()
+        self.host = host
+        self.client = Client(host=host) if host else Client()
+        if host:
+            logger.info("Using remote Ollama server at %s (skipping local install/pull/device probe)", host)
+            self.device_info = f"Remote ({host})"
+        else:
+            self._install_ollama()
+            self._pull_model(self.model_name)
+            self.device_info = self.check_device_usage()
         logger.info("Ollama device usage: %s", self.device_info)
     
     def _install_ollama(self):
@@ -42,7 +48,7 @@ class OllamaModelSetup:
             logger.error("Unsupported operating system: %s", system)
             raise OSError("Unsupported operating system.")
 
-    def _pull_model(self, model_name):
+    def _pull_model(self, model_name: str) -> None:
         """Pull the specified model."""
         logger.info("Ensuring Ollama model '%s' is available", model_name)
         result = subprocess.run(["ollama", "pull", model_name], capture_output=True, text=True)
@@ -79,7 +85,7 @@ class OllamaModelSetup:
                     device_info = "GPU (Metal)"
                 elif "cpu" in output_lower and "100%" in result.stdout:
                     device_info = "CPU"
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        except Exception as e:
             logger.debug("Could not check ollama ps: %s", e)
         
         # Method 2: Check for GPU availability based on OS
@@ -97,7 +103,7 @@ class OllamaModelSetup:
                         gpu_name = result.stdout.strip().split("\n")[0]
                         logger.info("Detected NVIDIA GPU: %s", gpu_name)
                         device_info = "GPU (CUDA) - Available"
-                except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                except Exception:
                     pass
                 
                 # Check for AMD GPU (ROCm)
@@ -111,7 +117,7 @@ class OllamaModelSetup:
                     if result.returncode == 0:
                         logger.info("Detected AMD GPU (ROCm)")
                         device_info = "GPU (ROCm) - Available"
-                except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                except Exception:
                     pass
                     
             elif system == "darwin":  # macOS
@@ -129,7 +135,7 @@ class OllamaModelSetup:
                             device_info = "GPU (Metal) - Available"
                         else:
                             device_info = "CPU - No Metal GPU detected"
-                except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                except Exception:
                     pass
                     
             elif system == "windows":
@@ -166,36 +172,57 @@ class OllamaModelSetup:
         self.device_info = self.check_device_usage()
         return self.device_info
 
-    def inference(self, input: str = None, prompt: str = None, format: Type[BaseModel] = None) -> BaseModel | None:
+    def inference(
+        self,
+        text: Optional[str] = None,
+        prompt: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
+    ) -> Optional[BaseModel]:
         """
-        Run inference with the specified model and format.
-        
+        Run schema-constrained inference and return the validated result.
+
         Args:
-            input: The input text to classify
-            prompt: The prompt to use for the inference
-            format: The Pydantic model to use for the inference
+            text: The input text to classify.
+            prompt: The system prompt instructing the model.
+            schema: The Pydantic model the response is constrained to and validated against.
+
         Returns:
-            BaseModel: The inference result
+            An instance of `schema` populated from the model's response.
         """
-        if not input or not prompt or not format:
-            raise ValueError("Input and format are required.")
+        if not text or not prompt or not schema:
+            raise ValueError("text, prompt, and schema are all required.")
         logger.debug("Running inference with model '%s'", self.model_name)
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": input}
+            {"role": "user", "content": text},
         ]
-        response = chat(
+        response = self.client.chat(
             model=self.model_name,
             messages=messages,
-            format=format.model_json_schema(),
+            format=schema.model_json_schema(),
+            options={
+                "num_predict": 256,
+                "num_ctx": 2048,
+                "num_gpu": 999,
+            },
+            keep_alive="30m",
+            think=False,
         )
-        response = format.model_validate_json(response.message.content)
-        return response
+        return schema.model_validate_json(response.message.content)
 
 if __name__ == "__main__":
     # Configure logging when running directly
-    from src.config.settings import configure_logging
+    from src.config.settings import OLLAMA_HOST, configure_logging
     configure_logging()
-    
-    ollama_model_setup = OllamaModelSetup(model_name="deepseek-r1:1.5b")
-    print(ollama_model_setup.inference(input="What is the capital of France?", prompt="What is the capital of France?", format=BaseModel))
+
+    class Capital(BaseModel):
+        capital: str
+
+    ollama_model_setup = OllamaModelSetup(model_name="gemma4:e4b", host=OLLAMA_HOST)
+    print(
+        ollama_model_setup.inference(
+            text="What is the capital of France?",
+            prompt="Answer with the capital city as JSON: {\"capital\": \"<city>\"}",
+            schema=Capital,
+        )
+    )

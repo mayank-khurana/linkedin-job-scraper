@@ -5,6 +5,12 @@ A Python application that scrapes LinkedIn posts for job opportunities, classifi
 ## Features
 
 - **Automated LinkedIn Scraping**: Scrapes LinkedIn posts based on search queries
+- **Headless Mode**: Run browser in headless mode (no visible window) for background operation
+- **Anti-Detection Measures**: Advanced stealth techniques to avoid detection:
+  - Random user-agent rotation
+  - WebDriver property masking
+  - Privacy and tracking preference configuration
+  - Performance optimizations
 - **AI Classification**: Uses Ollama models to classify:
   - Hiring-related posts (job postings, recruitment)
   - Profile names (Indian names classification)
@@ -66,6 +72,7 @@ You can set the following environment variables to override default configuratio
 
 - `LINKEDIN_EMAIL`: Your LinkedIn email address
 - `LINKEDIN_PASSWORD`: Your LinkedIn password
+- `LINKEDIN_HEADLESS`: Run in headless mode (set to "true" or "false", default: "false")
 - `LINKEDIN_LOG_LEVEL`: Logging level (default: `INFO`)
 - `LINKEDIN_LOG_FORMAT`: Log format string
 
@@ -73,6 +80,7 @@ Example:
 ```bash
 export LINKEDIN_EMAIL="your.email@example.com"
 export LINKEDIN_PASSWORD="your_password"
+export LINKEDIN_HEADLESS="true"
 export LINKEDIN_LOG_LEVEL="DEBUG"
 ```
 
@@ -82,6 +90,9 @@ Default settings can be modified in `src/config/settings.py`:
 - `SEARCH_TEXT`: Default search query (default: "Data Scientist")
 - `MAX_SCROLL_ATTEMPTS`: Maximum scroll attempts (default: 20)
 - `MAX_POSTS`: Maximum posts to collect (default: 10)
+- `HEADLESS`: Run browser in headless mode (default: False)
+- `WINDOW_WIDTH` / `WINDOW_HEIGHT`: Browser window dimensions (default: 1920x1080)
+- `USER_AGENTS`: List of user agents for rotation (anti-detection)
 - `MODEL_NAME`: Ollama model name (default: "deepseek-r1:1.5b")
 
 ## Usage
@@ -104,6 +115,8 @@ uv run python -m src.main \
 - `--search_text` (required): Search query text for LinkedIn posts
 - `--max_scroll_attempts` (optional): Maximum number of scroll attempts (defaults to config value)
 - `--interval` (optional): Hours to wait between iterations (default: 1.0 hour). Supports decimal values (e.g., 0.5 for 30 minutes, 2.0 for 2 hours)
+- `--headless` (optional): Run browser in headless mode (no visible window). Useful for background operation or server deployment
+- `--skip_sort_by_latest` (optional): Skip sorting the Posts results by "Latest". By default the scraper switches the Posts tab to "Latest"; pass this flag to keep LinkedIn's default "Top match" ordering instead
 
 ### Example Usage
 
@@ -142,6 +155,28 @@ uv run python -m src.main \
   --search_text "DevOps Engineer" \
   --max_scroll_attempts 50 \
   --interval 0.25
+
+# Run without sorting by "Latest" (keep LinkedIn's default "Top match" order)
+uv run python -m src.main \
+  --email "user@example.com" \
+  --password "secure_password" \
+  --search_text "Data Scientist" \
+  --skip_sort_by_latest
+
+# Run in headless mode (no visible browser window)
+uv run python -m src.main \
+  --email "user@example.com" \
+  --password "secure_password" \
+  --search_text "Data Scientist" \
+  --headless
+
+# Run in headless mode with custom interval
+uv run python -m src.main \
+  --email "user@example.com" \
+  --password "secure_password" \
+  --search_text "Backend Engineer" \
+  --headless \
+  --interval 0.5
 ```
 
 ### What Happens When You Run
@@ -293,12 +328,34 @@ uv add --dev package-name
 
 This project is for educational and research purposes. Please ensure compliance with LinkedIn's Terms of Service and applicable data protection regulations when using this tool.
 
+## Anti-Detection Features
+
+The scraper includes several measures to reduce the risk of detection:
+
+1. **Headless Mode**: Run without a visible browser window using the `--headless` flag
+2. **User-Agent Rotation**: Randomly selects from a pool of realistic user agents on each run
+3. **WebDriver Property Masking**: Hides the `navigator.webdriver` property that identifies automated browsers
+4. **Random Timing**: Variable delays between actions to simulate human behavior
+5. **Privacy Preferences**: Configured Firefox preferences to minimize fingerprinting
+6. **Window Size Consistency**: Maintains consistent viewport dimensions for reliable rendering
+
+### Best Practices for Avoiding Detection
+
+- Use headless mode for server deployments: `--headless`
+- Keep scroll attempts reasonable (10-30 range)
+- Use longer intervals between runs (1+ hours recommended)
+- Monitor LinkedIn's Terms of Service and respect rate limits
+- Consider running during off-peak hours
+- Don't run multiple instances simultaneously with the same account
+
 ## Notes
 
 - **Rate Limiting**: The application includes built-in delays to avoid overwhelming LinkedIn's servers
 - **Continuous Operation**: The application runs in a loop until you press `Ctrl+C`. Make sure to stop it when done.
 - **Background Operation**: The Firefox window can run in the background - the scraper uses JavaScript scrolling which doesn't require window focus
+- **Headless Mode**: When using `--headless`, the browser runs completely in the background with no visible window
 - **Data Accumulation**: Results are appended to the CSV file, so each run adds new data without overwriting previous results
 - **Ethical Use**: Use responsibly and respect LinkedIn's robots.txt and terms of service
 - **Data Privacy**: Be mindful of privacy implications when scraping and storing LinkedIn data
+- **Account Safety**: Excessive scraping may result in account restrictions. Use responsibly with appropriate intervals
 

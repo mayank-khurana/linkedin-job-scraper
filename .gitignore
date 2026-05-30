@@ -9,3 +9,12 @@ wheels/
 # Virtual environments
 .venv
 
+# Scraped output (contains third-party personal data)
+linkedin_jobs.xlsx
+
+# Editor / local config (may contain credentials)
+.vscode/launch.json
+
+# Project instructions (local only)
+CLAUDE.md
+
